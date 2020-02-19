@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+	<http:listener-config name="HTTP_Listener_Configuration" host="localhost" port="8081" doc:name="HTTP Listener Configuration"/>
+	<http:request-config name="HTTP_Request_Configuration" host="api.lufthansa.com" port="443" basePath="/v1/mds-references/countries/" doc:name="HTTP Request Configuration" protocol="HTTPS"/>
+	<flow name="rest-testFlow">
+		<http:listener config-ref="HTTP_Listener_Configuration" path="/getAllFlights" allowedMethods="GET" doc:name="HTTP"/>
+		<http:request config-ref="HTTP_Request_Configuration" path="/" method="GET" doc:name="HTTP"/>
+		<logger message="#[message]" level="INFO" doc:name="Logger"/>
+	</flow>
+	<flow name="getFlightByID">
+		<http:listener config-ref="HTTP_Listener_Configuration" path="/getFlightByID/{flightID}" allowedMethods="GET" doc:name="HTTP"/>
+		<set-variable variableName="flightID" value="#[message.inboundProperties.'http.uri.params'.flightID]" doc:name="Variable"/>
+		<http:request config-ref="HTTP_Request_Configuration" path="/{flightID}" method="GET" doc:name="HTTP">
+			<http:request-builder>
+				<http:uri-param paramName="flightID" value="#[flowVars.flightID]"/>
+			</http:request-builder>
+		</http:request>
+		<logger message="#[message.payloadAs(java.lang.String)]" level="INFO" doc:name="Logger"/>
+	</flow>
+	<flow name="getCountriesByID">
+		<http:listener config-ref="HTTP_Listener_Configuration" path="/getCountriesById/{countryID}" allowedMethods="GET" doc:name="HTTP"/>
+		<set-variable variableName="x-originating-ip" value="#[message.inboundProperties.'x-originating-ip']" doc:name="setOriginatingVariable"/>
+		<set-variable variableName="authorization" value="#[message.inboundProperties.'authorization']" doc:name="setTokenVariable"/>
+		<set-variable variableName="countryID" value="#[message.inboundProperties.'http.uri.params'.countryID]" doc:name="setcountryIDVariable"/>
+		<http:request config-ref="HTTP_Request_Configuration" path="/{countryID}" method="GET" doc:name="HTTP">
+			<http:request-builder>
+				<http:query-param paramName="limit" value="20"/>
+				<http:query-param paramName="offset" value="0"/>
+				<http:uri-param paramName="countryID" value="#[flowVars.countryID]"/>
+				<http:header headerName="Authorization" value="#[flowVars.'authorization']"/>
+				<http:header headerName="X-Originating-IP" value="#[flowVars.'x-originating-ip']"/>
+			</http:request-builder>
+		</http:request>
+		<logger message="#[message]" level="INFO" doc:name="Logger"/>
+	</flow>
+</mule>
