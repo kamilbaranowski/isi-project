@@ -8,7 +8,10 @@ http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/cor
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
 http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
 	<http:listener-config name="HTTP_Listener_Configuration" host="localhost" port="8081" doc:name="HTTP Listener Configuration"/>
-	<http:request-config name="HTTP_Request_Configuration" host="api.lufthansa.com" port="443" basePath="/v1/mds-references/countries/" doc:name="HTTP Request Configuration" protocol="HTTPS"/>
+	<http:request-config name="HTTP_Request_Configuration" host="api.lufthansa.com" port="443" basePath="/v1/offers/lounges" doc:name="HTTP Request Configuration" protocol="HTTPS"/>
+	<http:request-config name="HTTP_Request_Configuration1_aviation" host="api.aviationstack.com" port="80" basePath="/v1/flights" doc:name="HTTP Request Configuration"/>
+	<http:listener-config name="HTTP_Listener_Configuration1_aviation" host="localhost" port="8082" doc:name="HTTP Listener Configuration"/>
+	<http:request-config name="HTTP_Request_Configuration1-aviation" host="api.aviationstack.com" port="80" basePath="/v1/flights" doc:name="HTTP Request Configuration"/>
 	<flow name="rest-testFlow">
 		<http:listener config-ref="HTTP_Listener_Configuration" path="/getAllFlights" allowedMethods="GET" doc:name="HTTP"/>
 		<http:request config-ref="HTTP_Request_Configuration" path="/" method="GET" doc:name="HTTP"/>
@@ -24,7 +27,9 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 		</http:request>
 		<logger message="#[message.payloadAs(java.lang.String)]" level="INFO" doc:name="Logger"/>
 	</flow>
-	<flow name="getCountriesByID">
+	<flow name="getCountriesByID" doc:description="List all countries or one specific country. It is possible to request the response in a specific language.
+
+countryCode -  2-letter ISO 3166-1 country code">
 		<http:listener config-ref="HTTP_Listener_Configuration" path="/getCountriesById/{countryID}" allowedMethods="GET" doc:name="HTTP"/>
 		<set-variable variableName="x-originating-ip" value="#[message.inboundProperties.'x-originating-ip']" doc:name="setOriginatingVariable"/>
 		<set-variable variableName="authorization" value="#[message.inboundProperties.'authorization']" doc:name="setTokenVariable"/>
@@ -36,6 +41,33 @@ http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/m
 				<http:uri-param paramName="countryID" value="#[flowVars.countryID]"/>
 				<http:header headerName="Authorization" value="#[flowVars.'authorization']"/>
 				<http:header headerName="X-Originating-IP" value="#[flowVars.'x-originating-ip']"/>
+			</http:request-builder>
+		</http:request>
+		<logger message="#[message]" level="INFO" doc:name="Logger"/>
+	</flow>
+	<flow name="get-airport-info-from-lufthansa">
+		<http:listener config-ref="HTTP_Listener_Configuration" path="getAirportData/{location}" allowedMethods="GET, OPTIONS" doc:name="HTTP"/>
+		<set-variable variableName="location" value="#[message.inboundProperties.'http.uri.params'.location]" doc:name="SetLocationVariable"/>
+		<set-variable variableName="authorization" value="#[message.inboundProperties.'authorization']" doc:name="setLuftToken"/>
+		<http:request config-ref="HTTP_Request_Configuration" path="/{location}" method="GET" doc:name="HTTP">
+			<http:request-builder>
+				<http:query-param paramName="limit" value="10"/>
+				<http:query-param paramName="offset" value="0"/>
+				<http:uri-param paramName="location" value="#[flowVars.'location']"/>
+				<http:header headerName="Authorization" value="#[flowVars.'authorization']"/>
+			</http:request-builder>
+		</http:request>
+		<logger   doc:name="Logger" level="INFO" message="#[message]"/>
+	</flow>
+	<flow name="get-flights-from-aviations">
+		<http:listener config-ref="HTTP_Listener_Configuration1_aviation" path="/getFlights" allowedMethods="GET" doc:name="HTTP"/>
+		<set-variable variableName="access_key" value="#[message.inboundProperties.'http.query.params'.access_key]" doc:name="accessKeyVar"/>
+		<set-variable variableName="arr_iata" value="#[message.inboundProperties.'http.query.params'.arr_iata]" doc:name="arrIataVar"/>
+		<http:request config-ref="HTTP_Request_Configuration1-aviation" path="/" method="GET" doc:name="HTTP">
+			<http:request-builder>
+				<http:query-param paramName="access_key" value="#[flowVars.access_key]"/>
+				<http:query-param paramName="arr_iata" value="#[flowVars.arr_iata]"/>
+				<http:query-param paramName="airline_iata" value="LH"/>
 			</http:request-builder>
 		</http:request>
 		<logger message="#[message]" level="INFO" doc:name="Logger"/>
